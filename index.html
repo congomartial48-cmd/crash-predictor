@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101827">
+<title>Crash Tracker</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1220;--panel:#121d2e;--line:#26364d;--muted:#9aabc2;--green:#28d17c;--blue:#63a5ff}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(145deg,#0b1220,#101b2d);font:16px system-ui,-apple-system,Segoe UI,sans-serif;color:#eef4ff;min-height:100vh}
+main{max-width:760px;margin:auto;padding:24px 16px 48px}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}
+h1{font-size:24px;margin:0}.sub{color:var(--muted);font-size:13px;margin-top:5px}
+.pill{border:1px solid #1c704c;color:#70e8ac;background:#123326;border-radius:999px;padding:6px 10px;font-size:12px}
+.panel{background:rgba(18,29,46,.95);border:1px solid var(--line);border-radius:18px;padding:18px;margin:14px 0;box-shadow:0 12px 32px #0003}
+.label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.big{font-size:48px;font-weight:800;color:var(--green);line-height:1.2;margin:8px 0}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.stat{background:#0d1726;border-radius:12px;padding:12px}.stat strong{display:block;font-size:21px;margin-top:5px}
+form{display:flex;gap:10px;margin-top:12px}input{min-width:0;flex:1;background:#0b1422;border:1px solid #354760;color:white;border-radius:11px;padding:13px;font-size:17px}
+button{border:0;border-radius:11px;background:var(--blue);color:#081321;font-weight:750;padding:12px 16px;font-size:15px;cursor:pointer}button.secondary{background:#26364d;color:#eaf2ff}button.danger{background:#482631;color:#ffdbe2}
+.note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:12px}
+.tablewrap{overflow-x:auto}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{text-align:left;padding:12px 8px;border-bottom:1px solid var(--line)}th{font-size:12px;color:var(--muted);font-weight:600}td:last-child{font-weight:750;color:#8fc0ff}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.empty{text-align:center;color:var(--muted);padding:24px 8px}
+@media(max-width:480px){.stats{grid-template-columns:1fr 1fr}.big{font-size:40px}form{flex-direction:column}button{width:100%}}
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <div><h1>Crash Tracker</h1><div class="sub">Suivi des multiplicateurs • Xbet</div></div>
+    <span class="pill">TABLEAU PERSONNEL</span>
+  </header>
+  <section class="panel">
+    <div class="label">Dernier crash enregistré</div>
+    <div class="big" id="latest">—</div>
+    <div class="sub">Ajoute les résultats observés pour suivre tes sessions.</div>
+  </section>
+  <section class="panel stats">
+    <div class="stat"><span class="label">Tours notés</span><strong id="count">0</strong></div>
+    <div class="stat"><span class="label">Moyenne</span><strong id="average">—</strong></div>
+    <div class="stat"><span class="label">Plus haut</span><strong id="highest">—</strong></div>
+  </section>
+  <section class="panel">
+    <div class="label">Enregistrer un multiplicateur observé</div>
+    <form id="entryForm">
+      <input id="multiplier" type="number" min="1" max="1000000" step="0.01" placeholder="Ex. 2.45" inputmode="decimal" required>
+      <button type="submit">Ajouter</button>
+    </form>
+    <p class="note">Entre le résultat réellement affiché après un tour (sans le « x »). Cette application suit les résultats : elle ne prédit pas le prochain crash et ne se connecte pas à Xbet.</p>
+  </section>
+  <section class="panel">
+    <div class="label">Historique des crashs</div>
+    <div class="tablewrap">
+      <table><thead><tr><th>#</th><th>Heure</th><th>Multiplicateur</th></tr></thead><tbody id="history"></tbody></table>
+    </div>
+    <div class="empty" id="empty">Aucun résultat enregistré pour le moment.</div>
+    <div class="actions">
+      <button class="secondary" id="export">Exporter CSV</button>
+      <button class="danger" id="clear">Effacer l’historique</button>
+    </div>
+  </section>
+  <p class="note">Attention : les jeux Crash sont aléatoires. Les résultats passés ne permettent pas de connaître avec certitude le prochain multiplicateur. Ne mise que ce que tu peux te permettre de perdre.</p>
+</main>
+<script>
+const KEY='crash-tracker-results-v1';
+let rows=[];
+try{rows=JSON.parse(localStorage.getItem(KEY)||'[]');if(!Array.isArray(rows))rows=[]}catch(e){rows=[]}
+const $=id=>document.getElementById(id);
+function save(){localStorage.setItem(KEY,JSON.stringify(rows));render()}
+function render(){
+  const vals=rows.map(r=>r.value);
+  $('count').textContent=rows.length;
+  $('average').textContent=vals.length?(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2)+'x':'—';
+  $('highest').textContent=vals.length?Math.max(...vals).toFixed(2)+'x':'—';
+  $('latest').textContent=rows.length?rows[0].value.toFixed(2)+'x':'—';
+  $('empty').style.display=rows.length?'none':'block';
+  $('history').innerHTML=rows.map((r,i)=>`<tr><td>${rows.length-i}</td><td>${r.time}</td><td>${r.value.toFixed(2)}x</td></tr>`).join('');
+}
+$('entryForm').addEventListener('submit',e=>{
+  e.preventDefault();const v=Number($('multiplier').value);
+  if(!Number.isFinite(v)||v<1)return;
+  rows.unshift({value:v,time:new Date().toLocaleString('fr-FR')});
+  rows=rows.slice(0,500);$('multiplier').value='';save();
+});
+$('clear').addEventListener('click',()=>{
+  if(confirm('Effacer tout l’historique enregistré sur cet appareil ?')){rows=[];save()}
+});
+$('export').addEventListener('click',()=>{
+  const csv='Numero;Heure;Multiplicateur\n'+rows.map((r,i)=>`${rows.length-i};"${r.time}";${r.value.toFixed(2)}x`).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));a.download='historique-crash.csv';a.click();URL.revokeObjectURL(a.href);
+});
+render();
+</script>
+</body>
+</html>
